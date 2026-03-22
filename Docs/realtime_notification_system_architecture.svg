@@ -1,0 +1,318 @@
+<svg width="100%" viewBox="0 0 1200 900" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+    <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </marker>
+  <marker id="arrow-red" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+    <path d="M2 1L8 5L2 9" fill="none" stroke="#E05555" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </marker>
+</defs>
+
+<!-- ============================================================ -->
+<!-- TITLE -->
+<!-- ============================================================ -->
+<text x="600" y="16" text-anchor="middle" fill="#D3D1C7" font-size="16" font-weight="600">Real-Time Notification System Architecture</text>
+
+<!-- ============================================================ -->
+<!-- LAYER 1 — TRIGGER SOURCES (y~30-75) -->
+<!-- ============================================================ -->
+<rect x="140" y="32" width="120" height="40" rx="6" fill="rgb(68,68,65)" stroke="rgb(180,178,169)" stroke-width="0.5"/>
+<text x="200" y="55" text-anchor="middle" fill="#D3D1C7" font-size="12" font-weight="500">User Action</text>
+
+<rect x="310" y="32" width="120" height="40" rx="6" fill="rgb(68,68,65)" stroke="rgb(180,178,169)" stroke-width="0.5"/>
+<text x="370" y="55" text-anchor="middle" fill="#D3D1C7" font-size="12" font-weight="500">System Event</text>
+
+<rect x="480" y="32" width="170" height="40" rx="6" fill="rgb(68,68,65)" stroke="rgb(180,178,169)" stroke-width="0.5"/>
+<text x="565" y="49" text-anchor="middle" fill="#D3D1C7" font-size="12" font-weight="500">Scheduled Job</text>
+<text x="565" y="63" text-anchor="middle" fill="#9C9A92" font-size="10">(Celery Beat)</text>
+
+<!-- Arrows: Triggers → Nginx -->
+<line x1="200" y1="72" x2="370" y2="97" stroke="#9C9A92" stroke-width="1.2" marker-end="url(#arrow)"/>
+<line x1="370" y1="72" x2="370" y2="97" stroke="#9C9A92" stroke-width="1.2" marker-end="url(#arrow)"/>
+<line x1="565" y1="72" x2="370" y2="97" stroke="#9C9A92" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+<!-- ============================================================ -->
+<!-- LAYER 2 — LOAD BALANCER (y~97-145) -->
+<!-- ============================================================ -->
+<rect x="270" y="97" width="200" height="44" rx="6" fill="rgb(68,68,65)" stroke="rgb(180,178,169)" stroke-width="0.8"/>
+<text x="370" y="114" text-anchor="middle" fill="#D3D1C7" font-size="13" font-weight="600">Nginx</text>
+<text x="370" y="131" text-anchor="middle" fill="#9C9A92" font-size="10">Load Balancer · Rate Limiting · Port 80</text>
+
+<!-- Arrows: Nginx → Gunicorn, Nginx → Daphne -->
+<line x1="320" y1="141" x2="220" y2="176" stroke="#9C9A92" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="255" y="157" fill="#9C9A92" font-size="9" text-anchor="middle">HTTP</text>
+<line x1="420" y1="141" x2="530" y2="176" stroke="#9C9A92" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="490" y="157" fill="#9C9A92" font-size="9" text-anchor="middle">WebSocket</text>
+
+<!-- ============================================================ -->
+<!-- LAYER 3 — APPLICATION (y~176-265) -->
+<!-- ============================================================ -->
+<!-- Gunicorn (WSGI) -->
+<rect x="100" y="176" width="240" height="85" rx="7" fill="rgb(8,80,65)" stroke="rgb(93,202,165)" stroke-width="0.7"/>
+<text x="220" y="195" text-anchor="middle" fill="#9FE1CB" font-size="13" font-weight="600">Gunicorn (WSGI)</text>
+<text x="220" y="212" text-anchor="middle" fill="#5DCAA5" font-size="10">Django REST API · Port 8000</text>
+<line x1="120" y1="222" x2="320" y2="222" stroke="#5DCAA5" stroke-width="0.3"/>
+<text x="220" y="237" text-anchor="middle" fill="#5DCAA5" font-size="10">Token Auth · Idempotency</text>
+<text x="220" y="252" text-anchor="middle" fill="#5DCAA5" font-size="10">Validation · Serialization</text>
+
+<!-- Daphne (ASGI) -->
+<rect x="420" y="176" width="220" height="85" rx="7" fill="rgb(8,80,65)" stroke="rgb(93,202,165)" stroke-width="0.7"/>
+<text x="530" y="195" text-anchor="middle" fill="#9FE1CB" font-size="13" font-weight="600">Daphne (ASGI)</text>
+<text x="530" y="212" text-anchor="middle" fill="#5DCAA5" font-size="10">WebSocket Server · Port 8001</text>
+<line x1="440" y1="222" x2="620" y2="222" stroke="#5DCAA5" stroke-width="0.3"/>
+<text x="530" y="237" text-anchor="middle" fill="#5DCAA5" font-size="10">Django Channels</text>
+<text x="530" y="252" text-anchor="middle" fill="#5DCAA5" font-size="10">Consumer Groups</text>
+
+<!-- Arrow: Gunicorn → RabbitMQ -->
+<line x1="220" y1="261" x2="220" y2="295" stroke="#9C9A92" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="232" y="282" fill="#9C9A92" font-size="9">enqueue</text>
+
+<!-- Arrow: Daphne ↔ Redis Channels -->
+<line x1="530" y1="261" x2="610" y2="298" stroke="#9C9A92" stroke-width="1.2" marker-end="url(#arrow)"/>
+<text x="585" y="276" fill="#9C9A92" font-size="9">pub/sub</text>
+
+<!-- Arrow: Gunicorn → PgBouncer -->
+<line x1="160" y1="261" x2="160" y2="660" stroke="#9C9A92" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+<text x="148" y="460" fill="#9C9A92" font-size="8" transform="rotate(-90,148,460)">DB writes</text>
+
+<!-- ============================================================ -->
+<!-- LAYER 4 — MESSAGE BROKER (y~295-410) -->
+<!-- ============================================================ -->
+
+<!-- RabbitMQ Cluster container -->
+<rect x="60" y="295" width="460" height="115" rx="8" fill="none" stroke="#5B9BD5" stroke-width="1" stroke-dasharray="5 3"/>
+<text x="75" y="310" fill="#B5D4F4" font-size="11" font-weight="600">RabbitMQ Cluster (3 nodes)</text>
+
+<!-- Queue boxes -->
+<rect x="75" y="318" width="100" height="32" rx="5" fill="rgb(12,68,124)" stroke="#5B9BD5" stroke-width="0.5"/>
+<text x="125" y="338" text-anchor="middle" fill="#B5D4F4" font-size="10" font-weight="500">email_queue</text>
+
+<rect x="185" y="318" width="100" height="32" rx="5" fill="rgb(12,68,124)" stroke="#5B9BD5" stroke-width="0.5"/>
+<text x="235" y="338" text-anchor="middle" fill="#B5D4F4" font-size="10" font-weight="500">push_queue</text>
+
+<rect x="295" y="318" width="100" height="32" rx="5" fill="rgb(12,68,124)" stroke="#5B9BD5" stroke-width="0.5"/>
+<text x="345" y="338" text-anchor="middle" fill="#B5D4F4" font-size="10" font-weight="500">inapp_queue</text>
+
+<rect x="405" y="318" width="100" height="32" rx="5" fill="rgb(12,68,124)" stroke="#5B9BD5" stroke-width="0.5"/>
+<text x="455" y="338" text-anchor="middle" fill="#B5D4F4" font-size="10" font-weight="500">bulk_queue</text>
+
+<!-- Dead Letter Queues -->
+<rect x="75" y="360" width="430" height="40" rx="5" fill="rgb(100,30,30)" stroke="#E05555" stroke-width="0.5"/>
+<text x="290" y="377" text-anchor="middle" fill="#F7C1C1" font-size="10" font-weight="500">Dead Letter Queues</text>
+<text x="290" y="393" text-anchor="middle" fill="#D08080" font-size="9">dead_email · dead_push · dead_inapp · dead_bulk</text>
+
+<!-- Redis container -->
+<rect x="540" y="295" width="280" height="115" rx="8" fill="none" stroke="#C8A22A" stroke-width="1" stroke-dasharray="5 3"/>
+<text x="555" y="310" fill="#FAC775" font-size="11" font-weight="600">Redis (3 instances)</text>
+
+<rect x="555" y="318" width="115" height="32" rx="5" fill="rgb(100,65,8)" stroke="#C8A22A" stroke-width="0.5"/>
+<text x="612" y="332" text-anchor="middle" fill="#FAC775" font-size="9" font-weight="500">redis-channels</text>
+<text x="612" y="344" text-anchor="middle" fill="#C8A22A" font-size="8">Pub/Sub</text>
+
+<rect x="555" y="358" width="115" height="22" rx="5" fill="rgb(100,65,8)" stroke="#C8A22A" stroke-width="0.5"/>
+<text x="612" y="373" text-anchor="middle" fill="#FAC775" font-size="9" font-weight="500">redis-celery</text>
+
+<rect x="680" y="318" width="125" height="22" rx="5" fill="rgb(100,65,8)" stroke="#C8A22A" stroke-width="0.5"/>
+<text x="742" y="333" text-anchor="middle" fill="#FAC775" font-size="9" font-weight="500">redis-cache</text>
+
+<rect x="680" y="348" width="125" height="22" rx="5" fill="rgb(100,65,8)" stroke="#C8A22A" stroke-width="0.5"/>
+<text x="742" y="363" text-anchor="middle" fill="#C8A22A" font-size="8">Results · Cache</text>
+
+<!-- Failed tasks → DLQ (red dashed) -->
+<text x="290" y="355" text-anchor="middle" fill="#E05555" font-size="8">▼ failed tasks</text>
+
+<!-- ============================================================ -->
+<!-- LAYER 5 — WORKERS (y~430-530) -->
+<!-- ============================================================ -->
+
+<!-- Arrow: RabbitMQ → Workers -->
+<line x1="125" y1="400" x2="125" y2="438" stroke="#9C9A92" stroke-width="1" marker-end="url(#arrow)"/>
+<line x1="235" y1="350" x2="260" y2="438" stroke="#9C9A92" stroke-width="1" marker-end="url(#arrow)"/>
+<line x1="345" y1="350" x2="400" y2="438" stroke="#9C9A92" stroke-width="1" marker-end="url(#arrow)"/>
+<line x1="455" y1="350" x2="530" y2="438" stroke="#9C9A92" stroke-width="1" marker-end="url(#arrow)"/>
+
+<!-- Email Worker -->
+<rect x="55" y="438" width="145" height="55" rx="6" fill="rgb(55,40,110)" stroke="#9B94E8" stroke-width="0.6"/>
+<text x="127" y="456" text-anchor="middle" fill="#CECBF6" font-size="11" font-weight="600">Email Worker (x4)</text>
+<text x="127" y="471" text-anchor="middle" fill="#9B94E8" font-size="9">SendGrid → SES failover</text>
+<text x="127" y="484" text-anchor="middle" fill="#9B94E8" font-size="9">Circuit Breaker</text>
+
+<!-- Push Worker -->
+<rect x="210" y="438" width="145" height="55" rx="6" fill="rgb(55,40,110)" stroke="#9B94E8" stroke-width="0.6"/>
+<text x="282" y="456" text-anchor="middle" fill="#CECBF6" font-size="11" font-weight="600">Push Worker (x4)</text>
+<text x="282" y="471" text-anchor="middle" fill="#9B94E8" font-size="9">Firebase FCM</text>
+<text x="282" y="484" text-anchor="middle" fill="#9B94E8" font-size="9">Circuit Breaker</text>
+
+<!-- In-App Worker -->
+<rect x="365" y="438" width="145" height="55" rx="6" fill="rgb(55,40,110)" stroke="#9B94E8" stroke-width="0.6"/>
+<text x="437" y="456" text-anchor="middle" fill="#CECBF6" font-size="11" font-weight="600">In-App Worker (x2)</text>
+<text x="437" y="471" text-anchor="middle" fill="#9B94E8" font-size="9">Redis Channels → Daphne</text>
+<text x="437" y="484" text-anchor="middle" fill="#9B94E8" font-size="9">Real-time delivery</text>
+
+<!-- Fan-Out Worker -->
+<rect x="520" y="438" width="145" height="55" rx="6" fill="rgb(55,40,110)" stroke="#9B94E8" stroke-width="0.6"/>
+<text x="592" y="456" text-anchor="middle" fill="#CECBF6" font-size="11" font-weight="600">Fan-Out Worker (x2)</text>
+<text x="592" y="471" text-anchor="middle" fill="#9B94E8" font-size="9">Bulk batch splitting</text>
+<text x="592" y="484" text-anchor="middle" fill="#9B94E8" font-size="9">Recipient fan-out</text>
+
+<!-- Celery Beat -->
+<rect x="675" y="438" width="130" height="55" rx="6" fill="rgb(55,40,110)" stroke="#9B94E8" stroke-width="0.6"/>
+<text x="740" y="456" text-anchor="middle" fill="#CECBF6" font-size="11" font-weight="600">Celery Beat</text>
+<text x="740" y="471" text-anchor="middle" fill="#9B94E8" font-size="9">DLQ re-process</text>
+<text x="740" y="484" text-anchor="middle" fill="#9B94E8" font-size="9">Digest · Cleanup</text>
+
+<!-- Celery Beat → DLQ (dashed arrow going up) -->
+<line x1="740" y1="438" x2="500" y2="400" stroke="#E05555" stroke-width="1" stroke-dasharray="4 2" marker-end="url(#arrow-red)"/>
+<text x="635" y="414" fill="#E05555" font-size="8">re-process DLQ</text>
+
+<!-- Workers → PgBouncer (dashed, status updates) -->
+<line x1="127" y1="493" x2="183" y2="660" stroke="#9C9A92" stroke-width="0.8" stroke-dasharray="3 2" marker-end="url(#arrow)"/>
+
+<!-- ============================================================ -->
+<!-- LAYER 6 — DELIVERY ENDPOINTS (y~550-630) -->
+<!-- ============================================================ -->
+
+<!-- Arrow: Email Worker → SendGrid/SES -->
+<line x1="127" y1="493" x2="127" y2="558" stroke="#9C9A92" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+<!-- Arrow: Push Worker → Firebase FCM -->
+<line x1="282" y1="493" x2="282" y2="558" stroke="#9C9A92" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+<!-- Arrow: In-App Worker → WebSocket (back up to Daphne) -->
+<line x1="437" y1="493" x2="437" y2="558" stroke="#9C9A92" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+<!-- SendGrid / SES -->
+<rect x="62" y="558" width="130" height="52" rx="6" fill="rgb(120,48,18)" stroke="#E8956D" stroke-width="0.6"/>
+<text x="127" y="578" text-anchor="middle" fill="#F5C4B3" font-size="11" font-weight="600">SendGrid / SES</text>
+<text x="127" y="598" text-anchor="middle" fill="#E8956D" font-size="9">Email Delivery</text>
+
+<!-- Firebase FCM -->
+<rect x="217" y="558" width="130" height="52" rx="6" fill="rgb(120,48,18)" stroke="#E8956D" stroke-width="0.6"/>
+<text x="282" y="578" text-anchor="middle" fill="#F5C4B3" font-size="11" font-weight="600">Firebase FCM</text>
+<text x="282" y="598" text-anchor="middle" fill="#E8956D" font-size="9">Mobile Push</text>
+
+<!-- WebSocket (Real-time In-App) -->
+<rect x="372" y="558" width="130" height="52" rx="6" fill="rgb(120,48,18)" stroke="#E8956D" stroke-width="0.6"/>
+<text x="437" y="578" text-anchor="middle" fill="#F5C4B3" font-size="11" font-weight="600">WebSocket</text>
+<text x="437" y="598" text-anchor="middle" fill="#E8956D" font-size="9">Real-time In-App</text>
+
+<!-- Arrow: WebSocket → Daphne (going back up, curved via polyline) -->
+<polyline points="502,580 640,580 640,230 640,230" fill="none" stroke="#E8956D" stroke-width="1" stroke-dasharray="4 2" marker-end="url(#arrow)"/>
+<text x="645" y="400" fill="#E8956D" font-size="8" transform="rotate(-90,645,400)">→ Daphne WS push</text>
+
+<!-- ============================================================ -->
+<!-- LAYER 7 — DATA LAYER (y~650-740) -->
+<!-- ============================================================ -->
+
+<!-- PgBouncer -->
+<rect x="170" y="660" width="110" height="35" rx="6" fill="rgb(68,68,65)" stroke="rgb(180,178,169)" stroke-width="0.6"/>
+<text x="225" y="682" text-anchor="middle" fill="#D3D1C7" font-size="11" font-weight="500">PgBouncer</text>
+
+<!-- Arrow: PgBouncer → PG Primary -->
+<line x1="280" y1="677" x2="320" y2="677" stroke="#9C9A92" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+<!-- PG Primary -->
+<rect x="320" y="655" width="180" height="45" rx="6" fill="rgb(12,68,124)" stroke="#5B9BD5" stroke-width="0.6"/>
+<text x="410" y="673" text-anchor="middle" fill="#B5D4F4" font-size="11" font-weight="600">PostgreSQL Primary</text>
+<text x="410" y="690" text-anchor="middle" fill="#5B9BD5" font-size="9">Writes · Migrations</text>
+
+<!-- Arrow: PG Primary → PG Replica -->
+<line x1="500" y1="677" x2="540" y2="677" stroke="#5B9BD5" stroke-width="1" stroke-dasharray="4 2" marker-end="url(#arrow)"/>
+<text x="520" y="670" fill="#5B9BD5" font-size="8" text-anchor="middle">repl</text>
+
+<!-- PG Replica -->
+<rect x="540" y="655" width="170" height="45" rx="6" fill="rgb(12,68,124)" stroke="#5B9BD5" stroke-width="0.6"/>
+<text x="625" y="673" text-anchor="middle" fill="#B5D4F4" font-size="11" font-weight="600">PostgreSQL Replica</text>
+<text x="625" y="690" text-anchor="middle" fill="#5B9BD5" font-size="9">Reads · Reporting</text>
+
+<!-- ============================================================ -->
+<!-- MONITORING SIDEBAR (right side, y~176-700) -->
+<!-- ============================================================ -->
+<rect x="860" y="100" width="200" height="600" rx="8" fill="none" stroke="#6AAF3D" stroke-width="1" stroke-dasharray="5 3"/>
+<text x="960" y="120" text-anchor="middle" fill="#C0DD97" font-size="12" font-weight="600">Observability Stack</text>
+
+<!-- Prometheus -->
+<rect x="880" y="135" width="160" height="50" rx="6" fill="rgb(40,80,15)" stroke="#6AAF3D" stroke-width="0.5"/>
+<text x="960" y="155" text-anchor="middle" fill="#C0DD97" font-size="11" font-weight="600">Prometheus</text>
+<text x="960" y="174" text-anchor="middle" fill="#6AAF3D" font-size="9">Metrics · 15s scrape</text>
+
+<!-- Grafana -->
+<rect x="880" y="200" width="160" height="50" rx="6" fill="rgb(40,80,15)" stroke="#6AAF3D" stroke-width="0.5"/>
+<text x="960" y="220" text-anchor="middle" fill="#C0DD97" font-size="11" font-weight="600">Grafana</text>
+<text x="960" y="239" text-anchor="middle" fill="#6AAF3D" font-size="9">Dashboards · Alerts</text>
+
+<!-- ELK Stack -->
+<rect x="880" y="265" width="160" height="65" rx="6" fill="rgb(40,80,15)" stroke="#6AAF3D" stroke-width="0.5"/>
+<text x="960" y="285" text-anchor="middle" fill="#C0DD97" font-size="11" font-weight="600">ELK Stack</text>
+<text x="960" y="301" text-anchor="middle" fill="#6AAF3D" font-size="9">Elasticsearch</text>
+<text x="960" y="316" text-anchor="middle" fill="#6AAF3D" font-size="9">Logstash · Kibana</text>
+
+<!-- Jaeger -->
+<rect x="880" y="345" width="160" height="50" rx="6" fill="rgb(40,80,15)" stroke="#6AAF3D" stroke-width="0.5"/>
+<text x="960" y="365" text-anchor="middle" fill="#C0DD97" font-size="11" font-weight="600">Jaeger</text>
+<text x="960" y="384" text-anchor="middle" fill="#6AAF3D" font-size="9">Distributed Tracing</text>
+
+<!-- Redis Exporters -->
+<rect x="880" y="410" width="160" height="40" rx="6" fill="rgb(40,80,15)" stroke="#6AAF3D" stroke-width="0.5"/>
+<text x="960" y="430" text-anchor="middle" fill="#C0DD97" font-size="10" font-weight="500">Redis Exporters (x3)</text>
+<text x="960" y="444" text-anchor="middle" fill="#6AAF3D" font-size="8">Metrics → Prometheus</text>
+
+<!-- Dashed arrows: Services → Monitoring -->
+<line x1="340" y1="218" x2="860" y2="155" stroke="#6AAF3D" stroke-width="0.5" stroke-dasharray="3 3" opacity="0.4"/>
+<line x1="640" y1="218" x2="860" y2="170" stroke="#6AAF3D" stroke-width="0.5" stroke-dasharray="3 3" opacity="0.4"/>
+<line x1="520" y1="370" x2="860" y2="300" stroke="#6AAF3D" stroke-width="0.5" stroke-dasharray="3 3" opacity="0.4"/>
+<line x1="805" y1="465" x2="860" y2="380" stroke="#6AAF3D" stroke-width="0.5" stroke-dasharray="3 3" opacity="0.4"/>
+<line x1="710" y1="677" x2="860" y2="430" stroke="#6AAF3D" stroke-width="0.5" stroke-dasharray="3 3" opacity="0.4"/>
+<line x1="820" y1="340" x2="880" y2="430" stroke="#6AAF3D" stroke-width="0.5" stroke-dasharray="3 3" opacity="0.4"/>
+
+<!-- ============================================================ -->
+<!-- LEGEND (y~750-870) -->
+<!-- ============================================================ -->
+<rect x="40" y="730" width="1020" height="155" rx="8" fill="none" stroke="rgb(100,100,95)" stroke-width="0.5"/>
+<text x="60" y="752" fill="#D3D1C7" font-size="12" font-weight="600">Legend</text>
+
+<!-- Color legend row 1 -->
+<rect x="60" y="762" width="16" height="12" rx="3" fill="rgb(8,80,65)" stroke="#5DCAA5" stroke-width="0.5"/>
+<text x="82" y="772" fill="#D3D1C7" font-size="10">Green — API / Auth</text>
+
+<rect x="220" y="762" width="16" height="12" rx="3" fill="rgb(12,68,124)" stroke="#5B9BD5" stroke-width="0.5"/>
+<text x="242" y="772" fill="#D3D1C7" font-size="10">Blue — Broker / Queue</text>
+
+<rect x="400" y="762" width="16" height="12" rx="3" fill="rgb(55,40,110)" stroke="#9B94E8" stroke-width="0.5"/>
+<text x="422" y="772" fill="#D3D1C7" font-size="10">Purple — Workers</text>
+
+<rect x="560" y="762" width="16" height="12" rx="3" fill="rgb(120,48,18)" stroke="#E8956D" stroke-width="0.5"/>
+<text x="582" y="772" fill="#D3D1C7" font-size="10">Orange — Delivery</text>
+
+<!-- Color legend row 2 -->
+<rect x="60" y="785" width="16" height="12" rx="3" fill="rgb(100,65,8)" stroke="#C8A22A" stroke-width="0.5"/>
+<text x="82" y="795" fill="#D3D1C7" font-size="10">Yellow — Cache / State</text>
+
+<rect x="220" y="785" width="16" height="12" rx="3" fill="rgb(100,30,30)" stroke="#E05555" stroke-width="0.5"/>
+<text x="242" y="795" fill="#D3D1C7" font-size="10">Red — Failure / DLQ</text>
+
+<rect x="400" y="785" width="16" height="12" rx="3" fill="rgb(40,80,15)" stroke="#6AAF3D" stroke-width="0.5"/>
+<text x="422" y="795" fill="#D3D1C7" font-size="10">Light Green — Observability</text>
+
+<rect x="600" y="785" width="16" height="12" rx="3" fill="rgb(68,68,65)" stroke="rgb(180,178,169)" stroke-width="0.5"/>
+<text x="622" y="795" fill="#D3D1C7" font-size="10">Gray — Triggers / Infra</text>
+
+<!-- Line styles -->
+<text x="60" y="825" fill="#D3D1C7" font-size="11" font-weight="500">Line Styles:</text>
+<line x1="140" y1="821" x2="190" y2="821" stroke="#9C9A92" stroke-width="1.2"/>
+<text x="198" y="825" fill="#D3D1C7" font-size="10">Sync</text>
+
+<line x1="250" y1="821" x2="300" y2="821" stroke="#9C9A92" stroke-width="1.2" stroke-dasharray="4 3"/>
+<text x="308" y="825" fill="#D3D1C7" font-size="10">Async</text>
+
+<line x1="360" y1="821" x2="410" y2="821" stroke="#E05555" stroke-width="1.2" stroke-dasharray="4 2"/>
+<text x="418" y="825" fill="#D3D1C7" font-size="10">Retry / Error Path</text>
+
+<line x1="540" y1="821" x2="590" y2="821" stroke="#6AAF3D" stroke-width="0.5" stroke-dasharray="3 3"/>
+<text x="598" y="825" fill="#D3D1C7" font-size="10">Metrics Scrape</text>
+
+<!-- Figure caption -->
+<text x="550" y="860" text-anchor="middle" fill="#9C9A92" font-size="11" font-weight="500">26 Docker Containers · 7 Layers · Real-Time Notification System</text>
+<text x="550" y="876" text-anchor="middle" fill="#706F68" font-size="9">Django · Celery · RabbitMQ · Redis · PostgreSQL · Nginx · Prometheus · Grafana · ELK · Jaeger</text>
+
+</svg>

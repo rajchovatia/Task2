@@ -1,0 +1,389 @@
+services:
+  # ════════════════════════════════════════════════════════════════
+  # LOAD BALANCER
+  # ════════════════════════════════════════════════════════════════
+
+  # ── Nginx (HTTP + WebSocket routing, rate limiting) ──
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api
+      - ws
+    restart: unless-stopped
+
+  # ════════════════════════════════════════════════════════════════
+  # APPLICATION LAYER
+  # ════════════════════════════════════════════════════════════════
+
+  # ── Django API (WSGI — REST endpoints via Gunicorn) ──
+  api:
+    build: .
+    entrypoint: ["bash", "/app/docker-entrypoint.sh"]
+    command: >
+      gunicorn config.wsgi:application
+      --bind 0.0.0.0:8000
+      --workers 4
+      --threads 2
+      --worker-class gthread
+      --worker-tmp-dir /dev/shm
+      --timeout 120
+      --graceful-timeout 30
+      --access-logfile -
+      --error-logfile -
+      --log-level info
+    ports:
+      - "8000:8000"
+    env_file: .env
+    volumes:
+      - .:/app
+    depends_on:
+      - pgbouncer
+      - redis-cache
+      - redis-channels
+      - redis-celery
+      - rabbitmq-1
+    restart: unless-stopped
+
+  # ── Daphne WebSocket Server (ASGI — real-time) ──
+  ws:
+    build: .
+    command: daphne -b 0.0.0.0 -p 8001 config.asgi:application
+    ports:
+      - "8001:8001"
+    env_file: .env
+    volumes:
+      - .:/app
+    depends_on:
+      - pgbouncer
+      - redis-channels
+    restart: unless-stopped
+
+  # ════════════════════════════════════════════════════════════════
+  # CELERY WORKERS
+  # ════════════════════════════════════════════════════════════════
+
+  # ── Email Worker ──
+  email-worker:
+    build: .
+    command: celery -A config worker -l info -Q email_queue -c 4 -n email@%h
+    env_file: .env
+    volumes:
+      - .:/app
+    depends_on:
+      - rabbitmq-1
+      - redis-celery
+      - pgbouncer
+    restart: unless-stopped
+
+  # ── Push Worker ──
+  push-worker:
+    build: .
+    command: celery -A config worker -l info -Q push_queue -c 4 -n push@%h
+    env_file: .env
+    volumes:
+      - .:/app
+    depends_on:
+      - rabbitmq-1
+      - redis-celery
+      - pgbouncer
+    restart: unless-stopped
+
+  # ── In-App Worker ──
+  inapp-worker:
+    build: .
+    command: celery -A config worker -l info -Q inapp_queue -c 2 -n inapp@%h
+    env_file: .env
+    volumes:
+      - .:/app
+    depends_on:
+      - rabbitmq-1
+      - redis-celery
+      - redis-channels
+      - pgbouncer
+    restart: unless-stopped
+
+  # ── Fan-Out Worker (Bulk notifications — low priority) ──
+  fanout-worker:
+    build: .
+    command: celery -A config worker -l info -Q bulk_queue -c 2 -n fanout@%h
+    env_file: .env
+    volumes:
+      - .:/app
+    depends_on:
+      - rabbitmq-1
+      - redis-celery
+      - pgbouncer
+    restart: unless-stopped
+
+  # ── Celery Beat Scheduler ──
+  celery-beat:
+    build: .
+    command: celery -A config beat -l info
+    env_file: .env
+    volumes:
+      - .:/app
+    depends_on:
+      - rabbitmq-1
+      - redis-celery
+      - pgbouncer
+    restart: unless-stopped
+
+  # ════════════════════════════════════════════════════════════════
+  # DATA LAYER
+  # ════════════════════════════════════════════════════════════════
+
+  # ── PostgreSQL Primary (writes) ──
+  postgres-primary:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      REPLICATION_PASSWORD: ${REPLICATION_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_primary_data:/var/lib/postgresql/data
+      - ./docker/postgres/00-create-replicator.sh:/docker-entrypoint-initdb.d/00-create-replicator.sh:ro
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./docker/postgres/pg_hba_primary.conf:/etc/postgresql/pg_hba.conf:ro
+    command: >
+      postgres
+      -c wal_level=replica
+      -c max_wal_senders=5
+      -c wal_keep_size=256MB
+      -c max_replication_slots=5
+      -c hot_standby=on
+      -c listen_addresses='*'
+      -c hba_file=/etc/postgresql/pg_hba.conf
+    restart: unless-stopped
+
+  # ── PostgreSQL Read Replica ──
+  postgres-replica:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      REPLICATION_PASSWORD: ${REPLICATION_PASSWORD}
+      PGDATA: /var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_replica_data:/var/lib/postgresql/data
+      - ./docker/postgres/replica-entrypoint.sh:/replica-entrypoint.sh:ro
+    entrypoint: ["bash", "/replica-entrypoint.sh"]
+    depends_on:
+      - postgres-primary
+    restart: unless-stopped
+
+  # ── PgBouncer Connection Pool ──
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    ports:
+      - "6432:6432"
+    volumes:
+      - ./docker/pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
+      - ./docker/pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
+    depends_on:
+      - postgres-primary
+      - postgres-replica
+    restart: unless-stopped
+
+  # ════════════════════════════════════════════════════════════════
+  # REDIS (3 isolated instances)
+  # ════════════════════════════════════════════════════════════════
+
+  # ── Redis — Django Channels (WebSocket pub/sub) ──
+  redis-channels:
+    image: redis:7-alpine
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6380:6379"
+    restart: unless-stopped
+
+  # ── Redis — Celery (result backend + dedup sets) ──
+  redis-celery:
+    image: redis:7-alpine
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6382:6379"
+    restart: unless-stopped
+
+  # ── Redis — App Cache (preferences, unread counts, sessions) ──
+  redis-cache:
+    image: redis:7-alpine
+    command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6381:6379"
+    restart: unless-stopped
+
+  # ════════════════════════════════════════════════════════════════
+  # RABBITMQ CLUSTER (3 nodes — quorum queues)
+  # ════════════════════════════════════════════════════════════════
+
+  # ── RabbitMQ Node 1 (seed node) ──
+  rabbitmq-1:
+    image: rabbitmq:3.13-management-alpine
+    hostname: rabbitmq-1
+    environment:
+      RABBITMQ_ERLANG_COOKIE: ${RABBITMQ_ERLANG_COOKIE:-rns_cluster_cookie_secret}
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_1_data:/var/lib/rabbitmq
+      - ./docker/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    restart: unless-stopped
+
+  # ── RabbitMQ Node 2 ──
+  rabbitmq-2:
+    image: rabbitmq:3.13-management-alpine
+    hostname: rabbitmq-2
+    environment:
+      RABBITMQ_ERLANG_COOKIE: ${RABBITMQ_ERLANG_COOKIE:-rns_cluster_cookie_secret}
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
+    volumes:
+      - rabbitmq_2_data:/var/lib/rabbitmq
+      - ./docker/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    depends_on:
+      - rabbitmq-1
+    restart: unless-stopped
+
+  # ── RabbitMQ Node 3 ──
+  rabbitmq-3:
+    image: rabbitmq:3.13-management-alpine
+    hostname: rabbitmq-3
+    environment:
+      RABBITMQ_ERLANG_COOKIE: ${RABBITMQ_ERLANG_COOKIE:-rns_cluster_cookie_secret}
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
+    volumes:
+      - rabbitmq_3_data:/var/lib/rabbitmq
+      - ./docker/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    depends_on:
+      - rabbitmq-1
+    restart: unless-stopped
+
+  # ════════════════════════════════════════════════════════════════
+  # MONITORING & OBSERVABILITY
+  # ════════════════════════════════════════════════════════════════
+
+  # ── Prometheus (Metrics Collection) ──
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./docker/prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=30d"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  # ── Grafana (Dashboards + Alerting) ──
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  # ── Redis Exporters (for Prometheus scraping) ──
+  redis-exporter-cache:
+    image: oliver006/redis_exporter:latest
+    environment:
+      REDIS_ADDR: redis://redis-cache:6379
+    depends_on:
+      - redis-cache
+    restart: unless-stopped
+
+  redis-exporter-celery:
+    image: oliver006/redis_exporter:latest
+    environment:
+      REDIS_ADDR: redis://redis-celery:6379
+    depends_on:
+      - redis-celery
+    restart: unless-stopped
+
+  redis-exporter-channels:
+    image: oliver006/redis_exporter:latest
+    environment:
+      REDIS_ADDR: redis://redis-channels:6379
+    depends_on:
+      - redis-channels
+    restart: unless-stopped
+
+  # ── Elasticsearch (Log Storage + Search) ──
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    restart: unless-stopped
+
+  # ── Logstash (Log Pipeline) ──
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.12.0
+    ports:
+      - "5044:5044"
+    volumes:
+      - ./docker/elk/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
+    depends_on:
+      - elasticsearch
+    restart: unless-stopped
+
+  # ── Kibana (Log Visualization) ──
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.12.0
+    ports:
+      - "5601:5601"
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    restart: unless-stopped
+
+  # ── Jaeger (Distributed Tracing UI) ──
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "6831:6831/udp"
+      - "16686:16686"
+    environment:
+      COLLECTOR_ZIPKIN_HOST_PORT: ":9411"
+    restart: unless-stopped
+
+volumes:
+  postgres_primary_data:
+  postgres_replica_data:
+  rabbitmq_1_data:
+  rabbitmq_2_data:
+  rabbitmq_3_data:
+  prometheus_data:
+  grafana_data:
+  elasticsearch_data:

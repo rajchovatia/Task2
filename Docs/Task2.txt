@@ -1,0 +1,96 @@
+Task 2: System Design – Real-Time Notification System
+
+Problem Statement
+
+Design a Real-Time Notification System for an application with:
+  - 100,000+ registered users
+  - Web + Mobile clients
+  - Email + Push notifications
+  - In-app real-time notifications
+
+The system should:
+  - Deliver notifications in real-time when possible
+  - Handle high traffic spikes (e.g., 50,000 notifications at once)
+  - Avoid duplicate notifications
+  - Be horizontally scalable
+  - Handle failures gracefully
+
+Functional Requirements
+
+1. Users can receive:
+   o In-app notifications
+   o Push notifications
+   o Email notifications
+
+2. Notifications may be triggered by:
+   o User actions
+   o System events
+   o Scheduled jobs
+
+3. Each notification should contain:
+   o Title
+   o Message
+   o User ID
+   o Type
+   o Timestamp
+   o Read/Unread status
+
+Non-Functional Requirements
+  - Must support high concurrency
+  - Must not lose notifications
+  - Should allow retry if delivery fails
+  - Should be scalable
+  - Should support monitoring and logging
+
+Deliverables
+
+Please submit the following:
+
+1. Architecture Diagram
+  - High-level system diagram
+  - All major components included
+  - Flow of notification from trigger to delivery
+
+2. Component Explanation (Document)
+Explain:
+  - API layer
+  - Database choice and structure
+  - Queue or messaging system (if used)
+  - Worker services
+  - Real-time delivery mechanism
+  - Email/Push integration
+  - Failure handling
+  - Retry strategy
+
+3. Database Design
+Provide:
+  - Table structure
+  - Indexing strategy
+  - Relationship design
+  - How duplicates are prevented
+
+4. Scaling Strategy
+Explain:
+  - How system handles 50,000 simultaneous notifications
+  - How to scale horizontally
+  - How load balancing works
+  - How back-pressure is managed
+
+5. Failure Handling Strategy
+Explain:
+  - What happens if:
+    o Worker crashes?
+    o Queue fills up?
+    o Email service is down?
+    o Database slows down?
+  - How retry works
+  - Idempotency handling
+
+6. Monitoring & Observability
+Describe:
+  - What metrics you would track
+  - Logging strategy
+  - Alerting approach
+
+Time Expectation
+Suggested time: 2 – 3 days

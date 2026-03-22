@@ -1,0 +1,41 @@
+# Documentation - deployment ma jarur nathi
+Docs/
+*.md
+LICENSE
+
+# Git
+.git
+.gitignore
+
+# Environment files
+.env.example
+
+# Docker files
+Dockerfile
+docker-compose.yml
+docker/
+
+# Python cache
+__pycache__
+*.pyc
+*.pyo
+*.egg-info
+.pytest_cache
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Celery beat schedule
+celerybeat-schedule
