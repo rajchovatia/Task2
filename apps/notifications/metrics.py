@@ -1,19 +1,8 @@
-"""
-Custom Prometheus metrics for the notification system.
-
-Exposes delivery and task metrics via a custom collector that queries
-the database. This runs in the API/WS process where /metrics is scraped.
-"""
-
 from prometheus_client.core import GaugeMetricFamily, CounterMetricFamily, REGISTRY
 from prometheus_client import Gauge
 
 
 class NotificationMetricsCollector:
-    """
-    Custom Prometheus collector that exposes notification delivery metrics
-    by querying the database on each scrape.
-    """
 
     def collect(self):
         try:
@@ -94,7 +83,6 @@ class NotificationMetricsCollector:
 
 
 def register_metrics():
-    """Register the custom collector. Safe to call multiple times."""
     try:
         REGISTRY.register(NotificationMetricsCollector())
     except ValueError:

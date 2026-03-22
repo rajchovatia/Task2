@@ -9,24 +9,18 @@ logger = logging.getLogger(__name__)
 
 
 class NotificationService:
-    """Business logic for creating and managing notifications."""
-
     @staticmethod
     def create_notification(validated_data):
-        """Create notification, delivery records, and enqueue Celery tasks."""
         notification = Notification.objects.create(**validated_data)
 
-        # Get notification type channels
         channels = notification.type.channels or ["inapp"]
 
-        # Check user preferences
         preference = NotificationPreference.objects.filter(
             user=notification.recipient
         ).first()
 
         enabled_channels = NotificationService._filter_channels(channels, preference)
 
-        # Create delivery records for each enabled channel
         deliveries = []
         for channel in enabled_channels:
             deliveries.append(
@@ -40,10 +34,8 @@ class NotificationService:
         if deliveries:
             NotificationDelivery.objects.bulk_create(deliveries)
 
-        # Check quiet hours — delay delivery if within quiet period
         eta = NotificationService._get_quiet_hours_eta(preference)
 
-        # Enqueue Celery tasks per channel
         NotificationService._enqueue_delivery_tasks(
             notification, enabled_channels, eta=eta
         )

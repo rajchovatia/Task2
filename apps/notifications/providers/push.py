@@ -17,19 +17,6 @@ class PermanentPushError(Exception):
 
 
 def send_via_fcm(notification):
-    """
-    Send push notification via FCM using fcm-django.
-
-    Args:
-        notification: Notification model instance
-
-    Returns:
-        list: Provider response IDs
-
-    Raises:
-        PushProviderError: On transient failures (retry)
-        PermanentPushError: On permanent failures (no retry)
-    """
     try:
         from fcm_django.models import FCMDevice
 

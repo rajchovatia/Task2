@@ -47,16 +47,9 @@ class NotificationViewSet(viewsets.ModelViewSet):
         return NotificationSerializer
 
     def create(self, request, *args, **kwargs):
-        """
-        Create a notification with 3-layer idempotency:
-        Layer 1: X-Idempotency-Key header
-        Layer 2: Redis SET NX (fast duplicate check)
-        Layer 3: DB UNIQUE constraint on idempotency_key
-        """
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        # Layer 1: Extract idempotency key from header or body
         idempotency_key = (
             request.headers.get("X-Idempotency-Key")
             or serializer.validated_data.get("idempotency_key")
@@ -65,10 +58,8 @@ class NotificationViewSet(viewsets.ModelViewSet):
         if idempotency_key:
             serializer.validated_data["idempotency_key"] = idempotency_key
 
-            # Layer 2: Redis SET NX — fast check
             is_new = check_idempotency_redis(idempotency_key)
             if not is_new:
-                # Redis says duplicate — verify in DB (Layer 3)
                 existing = Notification.objects.filter(
                     idempotency_key=idempotency_key
                 ).first()
@@ -92,16 +83,11 @@ class NotificationViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["post"], url_path="bulk")
     def bulk_create(self, request):
-        """
-        POST /api/v1/notifications/bulk/
-        Create bulk notifications — fans out via Celery in batches.
-        """
         serializer = BulkNotificationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         from .tasks_bulk import fan_out_bulk_notifications
 
-        # Convert validated_data to JSON-serializable dict
         bulk_data = {
             "type_id": serializer.validated_data["type"].id,
             "title": serializer.validated_data["title"],
@@ -147,11 +133,6 @@ class NotificationViewSet(viewsets.ModelViewSet):
 
 
 class NotificationPreferenceViewSet(viewsets.GenericViewSet):
-    """
-    GET /api/v1/preferences/     — get user preferences
-    PUT /api/v1/preferences/     — update user preferences
-    """
-
     serializer_class = NotificationPreferenceSerializer
     permission_classes = [IsAuthenticated]
 

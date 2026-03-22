@@ -22,19 +22,7 @@ class AllProvidersDownError(EmailProviderError):
 
 
 def send_via_sendgrid(notification):
-    """
-    Send email with multi-provider failover: SendGrid → SES.
 
-    Args:
-        notification: Notification model instance
-
-    Returns:
-        str: Provider message ID
-
-    Raises:
-        EmailProviderError: On transient failures (retry)
-        PermanentEmailError: On permanent failures (no retry)
-    """
     recipient_email = notification.recipient.email
     if not recipient_email:
         raise PermanentEmailError(f"User {notification.recipient_id} has no email")
@@ -73,7 +61,6 @@ def send_via_sendgrid(notification):
 
 
 def _send_with_backend(notification, recipient_email, backend_path):
-    """Send email using a specific backend."""
     try:
         connection = get_connection(backend=backend_path)
 
@@ -85,7 +72,6 @@ def _send_with_backend(notification, recipient_email, backend_path):
             connection=connection,
         )
 
-        # Attach tracking metadata via anymail's merge_metadata (works with SendGrid/SES)
         if notification.metadata:
             email.extra_headers = {
                 "X-Notification-ID": str(notification.id),
@@ -97,7 +83,6 @@ def _send_with_backend(notification, recipient_email, backend_path):
         if result == 0:
             raise EmailProviderError("Provider returned 0 sent count")
 
-        # Get provider message ID from anymail status
         provider_id = ""
         if hasattr(email, "anymail_status"):
             anymail_status = email.anymail_status

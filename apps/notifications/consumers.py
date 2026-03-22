@@ -6,7 +6,6 @@ from prometheus_client import Gauge
 
 logger = logging.getLogger(__name__)
 
-# Prometheus metric for active WebSocket connections
 websocket_connections_active = Gauge(
     "django_websocket_connections_active",
     "Number of active WebSocket connections",
@@ -16,7 +15,6 @@ websocket_connections_active = Gauge(
 class NotificationConsumer(AsyncJsonWebsocketConsumer):
     """
     WebSocket consumer for real-time notification delivery.
-
     Clients connect to ws/notifications/ with a valid token.
     On connect, they join a user-specific group: notifications_{user_id}
     Server can push notifications and unread count updates to connected clients.
@@ -52,7 +50,6 @@ class NotificationConsumer(AsyncJsonWebsocketConsumer):
             )
 
     async def receive_json(self, content, **kwargs):
-        """Handle incoming messages from the client."""
         msg_type = content.get("type")
 
         if msg_type == "mark_read":
@@ -66,17 +63,11 @@ class NotificationConsumer(AsyncJsonWebsocketConsumer):
             await self.mark_all_notifications_read()
             await self.send_json({"type": "unread_count", "count": 0})
 
-    # ── Group message handlers (called via channel_layer.group_send) ──
-
     async def notification_send(self, event):
-        """Send a new notification to the client."""
         await self.send_json(event["data"])
 
     async def unread_count_update(self, event):
-        """Send updated unread count to the client."""
         await self.send_json({"type": "unread_count", "count": event["count"]})
-
-    # ── Database helpers ──
 
     @database_sync_to_async
     def get_unread_count(self):

@@ -7,16 +7,13 @@ django-filter>=24.0
 python-dotenv>=1.0
 bleach>=6.0
 gunicorn>=22.0
-# Phase 2: WebSocket + Channels
 channels>=4.1
 daphne>=4.1
 channels-redis>=4.2
-# Phase 3: Async Processing + Workers
 celery[redis]>=5.3
 django-anymail[sendgrid,amazon-ses]>=11.0
 fcm-django>=2.0
 pybreaker>=1.0
-# Phase 6: Monitoring & Observability
 django-prometheus>=2.3
 python-json-logger>=2.0
 django-guid>=3.4

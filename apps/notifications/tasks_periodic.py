@@ -17,12 +17,7 @@ User = get_user_model()
 
 @shared_task(name="apps.notifications.tasks_periodic.process_dlq")
 def process_dlq():
-    """
-    Re-process failed deliveries from dead letter queues.
-    Runs every 5 minutes via Celery Beat.
-    """
     from django.db import transaction
-
     from .tasks import send_email, send_inapp, send_push
 
     task_map = {
@@ -32,8 +27,6 @@ def process_dlq():
     }
 
     requeued = 0
-    # Use select_for_update(skip_locked=True) to prevent race condition
-    # when multiple DLQ processors run concurrently
     with transaction.atomic():
         failed_deliveries = list(
             NotificationDelivery.objects.select_for_update(skip_locked=True)
@@ -47,7 +40,6 @@ def process_dlq():
         for delivery in failed_deliveries:
             task = task_map.get(delivery.channel)
             if task:
-                # Reset status to pending before re-enqueuing
                 delivery.status = NotificationDelivery.Status.PENDING
                 delivery.save(update_fields=["status"])
                 task.delay(str(delivery.notification_id))
@@ -61,13 +53,8 @@ def process_dlq():
 
 @shared_task(name="apps.notifications.tasks_periodic.send_digests")
 def send_digests():
-    """
-    Send daily digest emails for users with digest_mode='daily'.
-    Runs daily at 8 AM via Celery Beat.
-    """
     yesterday = timezone.now() - timedelta(days=1)
 
-    # Find users with daily digest preference
     digest_users = NotificationPreference.objects.filter(
         digest_mode=NotificationPreference.DigestMode.DAILY,
         email_enabled=True,
@@ -79,7 +66,6 @@ def send_digests():
         if not user.email:
             continue
 
-        # Get unread notifications from the last 24h
         notifications = Notification.objects.filter(
             recipient=user,
             created_at__gte=yesterday,
@@ -114,18 +100,12 @@ def send_digests():
 
 @shared_task(name="apps.notifications.tasks_periodic.cleanup_old")
 def cleanup_old():
-    """
-    Delete expired and old notifications.
-    Runs daily at 3 AM via Celery Beat.
-    """
     now = timezone.now()
 
-    # Delete expired notifications
     expired_count = Notification.objects.filter(
         expires_at__lt=now,
     ).delete()[0]
 
-    # Delete read notifications older than configured days
     cutoff = now - timedelta(days=django_settings.CLEANUP_READ_AFTER_DAYS)
     old_count = Notification.objects.filter(
         is_read=True,
@@ -141,10 +121,6 @@ def cleanup_old():
 
 @shared_task(name="apps.notifications.tasks_periodic.cleanup_fcm_tokens")
 def cleanup_fcm_tokens():
-    """
-    Deactivate inactive FCM device tokens (no activity in 30 days).
-    Runs daily at 4 AM via Celery Beat.
-    """
     try:
         from fcm_django.models import FCMDevice
 

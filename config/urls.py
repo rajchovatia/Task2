@@ -7,8 +7,7 @@ urlpatterns = [
     path("api/v1/", include("apps.notifications.urls")),
     path("api/v1/", include("apps.devices.urls")),
     path("api/v1/", include("apps.analytics.urls")),
-    # Token authentication endpoint
+    # Token authentication
     path("api/v1/auth/token/", obtain_auth_token, name="api_token_auth"),
-    # Prometheus metrics endpoint (Phase 6)
     path("", include("django_prometheus.urls")),
 ]

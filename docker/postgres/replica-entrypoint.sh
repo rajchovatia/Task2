@@ -15,10 +15,8 @@ if [ -s "/var/lib/postgresql/data/PG_VERSION" ]; then
 else
     echo "Initializing replica from primary via pg_basebackup..."
 
-    # Clean data directory (must be empty for pg_basebackup)
     rm -rf /var/lib/postgresql/data/*
 
-    # Create base backup from primary
     PGPASSWORD=${REPLICATION_PASSWORD} pg_basebackup \
         -h postgres-primary \
         -p 5432 \
@@ -26,7 +24,6 @@ else
         -D /var/lib/postgresql/data \
         -Fp -Xs -P -R
 
-    # -R flag creates standby.signal and sets primary_conninfo in postgresql.auto.conf
 
     echo "Base backup complete, replica initialized."
 fi

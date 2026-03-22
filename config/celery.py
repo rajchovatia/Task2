@@ -9,21 +9,16 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.development")
 app = Celery("config")
 app.config_from_object("django.conf:settings", namespace="CELERY")
 app.autodiscover_tasks()
-# Explicitly discover non-standard task modules
 app.autodiscover_tasks(["apps.notifications"], related_name="tasks_bulk")
 app.autodiscover_tasks(["apps.notifications"], related_name="tasks_periodic")
 
-# ── Exchange definitions ──
 default_exchange = Exchange("default", type="direct")
 notification_exchange = Exchange("notifications", type="direct")
 bulk_exchange = Exchange("bulk", type="direct")
 dlx_exchange = Exchange("dlx", type="direct")
 
-# ── Queue definitions with Dead Letter Exchange ──
 app.conf.task_queues = (
-    # Default queue
     Queue("default", default_exchange, routing_key="default"),
-    # Notification channel queues
     Queue(
         "email_queue",
         notification_exchange,
@@ -60,7 +55,6 @@ app.conf.task_queues = (
             "x-queue-type": "quorum",
         },
     ),
-    # Bulk queue — lower priority, separate from transactional
     Queue(
         "bulk_queue",
         bulk_exchange,
