@@ -23,7 +23,10 @@ media/
 staticfiles/
 
 # Environment
+.env
 .env.local
+.env.production
+.env.staging
 firebase-credentials.json
 
 # Docker
@@ -41,6 +44,13 @@ celerybeat.pid
 *.swp
 *.swo
 *~
+
+# Load Testing Scripts
+load_test.py
+grafana_load_test.py
+
+# Gunicorn
+gunicorn.ctl
 
 # OS
 .DS_Store

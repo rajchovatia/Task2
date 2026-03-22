@@ -2,8 +2,15 @@ import logging
 
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
+from prometheus_client import Gauge
 
 logger = logging.getLogger(__name__)
+
+# Prometheus metric for active WebSocket connections
+websocket_connections_active = Gauge(
+    "django_websocket_connections_active",
+    "Number of active WebSocket connections",
+)
 
 
 class NotificationConsumer(AsyncJsonWebsocketConsumer):
@@ -28,11 +35,17 @@ class NotificationConsumer(AsyncJsonWebsocketConsumer):
         await self.channel_layer.group_add(self.group_name, self.channel_name)
         await self.accept()
 
+        # Track active WebSocket connections
+        websocket_connections_active.inc()
+
         # Send unread count on connect
         count = await self.get_unread_count()
         await self.send_json({"type": "unread_count", "count": count})
 
     async def disconnect(self, close_code):
+        # Track active WebSocket connections
+        websocket_connections_active.dec()
+
         if hasattr(self, "group_name"):
             await self.channel_layer.group_discard(
                 self.group_name, self.channel_name

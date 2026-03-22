@@ -39,3 +39,9 @@ Thumbs.db
 
 # Celery beat schedule
 celerybeat-schedule
+
+# Gunicorn control socket
+gunicorn.ctl
+
+# Load test script
+load_test.py
